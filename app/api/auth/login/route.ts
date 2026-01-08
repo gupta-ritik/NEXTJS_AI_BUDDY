@@ -1,56 +1,42 @@
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import { NextResponse } from "next/server"
-
-interface User {
-  email: string
-  passwordHash: string
-}
-
-// Demo user: replace with your DB lookup
-const users: User[] = [
-  {
-    email: "test@example.com",
-    // hash for password "password123" (generate your own in signup flow)
-    passwordHash: "$2a$10$Q.7h4NDVlpHfVEfM3D7E1OeZ2iXH1giF2p2PB0pH1zMDV1HKGpKkW",
-  },
-]
+import { users } from "../users-store"
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json()
+    const body = await req.json()
+    console.log("LOGIN BODY:", body)
 
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: "Email and password are required" },
-        { status: 400 }
-      )
-    }
+    const { email, password } = body
+
+    console.log("LOGIN: current users store", users)
 
     const user = users.find((u) => u.email === email)
+    console.log("USER FOUND:", user)
+
     if (!user) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-    const ok = await bcrypt.compare(password, user.passwordHash)
-    if (!ok) {
+    if (user.verified === false) {
+      return NextResponse.json({ error: "Please verify your email before logging in." }, { status: 403 })
+    }
+
+    const match = await bcrypt.compare(password, user.passwordHash)
+    console.log("PASSWORD MATCH:", match)
+
+    if (!match) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-    const secret = process.env.JWT_SECRET
-    if (!secret) {
-      console.error("JWT_SECRET env var is not set")
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500 }
-      )
-    }
+    const secret = process.env.JWT_SECRET || "dev-secret"
 
     const token = jwt.sign({ email }, secret, { expiresIn: "7d" })
 
-    return NextResponse.json({ token }, { status: 200 })
+    return NextResponse.json({ token })
   } catch (err) {
-    console.error("Login error:", err)
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 })
+    console.error(err)
+    return NextResponse.json({ error: "Server error" }, { status: 500 })
   }
 }
