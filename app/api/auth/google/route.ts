@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
 import { OAuth2Client } from "google-auth-library"
-import { users } from "../users-store"
+import { upsertGoogleUser } from "../user-repository"
 
 const clientId = process.env.GOOGLE_CLIENT_ID
 const oauthClient = clientId ? new OAuth2Client(clientId) : null
@@ -37,27 +37,8 @@ export async function POST(req: Request) {
     const googleId = payload.sub || null
     const emailVerified = payload.email_verified ?? true
 
-    let user = users.find((u) => u.email === email)
-
-    if (!user) {
-      // Create a new user backed by Google
-      user = {
-        email,
-        passwordHash: "", // not used for Google accounts
-        verified: emailVerified,
-        verificationToken: null,
-        provider: "google",
-        googleId,
-      }
-      users.push(user)
-      console.log("GOOGLE REGISTER: user created", { email })
-    } else {
-      user.verified = emailVerified
-      user.provider = "google"
-      user.googleId = googleId
-      user.verificationToken = null
-      console.log("GOOGLE LOGIN: existing user", { email })
-    }
+    await upsertGoogleUser({ email, googleId, emailVerified })
+    console.log("GOOGLE AUTH: user upserted", { email })
 
     const secret = process.env.JWT_SECRET || "dev-secret"
     const token = jwt.sign({ email }, secret, { expiresIn: "7d" })

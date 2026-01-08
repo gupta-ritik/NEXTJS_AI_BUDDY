@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import { NextResponse } from "next/server"
-import { users } from "../users-store"
+import { findUserByEmail } from "../user-repository"
 
 export async function POST(req: Request) {
   try {
@@ -10,9 +10,7 @@ export async function POST(req: Request) {
 
     const { email, password } = body
 
-    console.log("LOGIN: current users store", users)
-
-    const user = users.find((u) => u.email === email)
+    const user = await findUserByEmail(email)
     console.log("USER FOUND:", user)
 
     if (!user) {
@@ -23,7 +21,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Please verify your email before logging in." }, { status: 403 })
     }
 
-    const match = await bcrypt.compare(password, user.passwordHash)
+    const match = await bcrypt.compare(password, user.password_hash || "")
     console.log("PASSWORD MATCH:", match)
 
     if (!match) {

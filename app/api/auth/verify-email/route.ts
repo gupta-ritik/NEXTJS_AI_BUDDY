@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { users } from "../users-store"
+import { findUserByVerificationToken, markUserVerifiedById } from "../user-repository"
 
 export async function GET(req: Request) {
   try {
@@ -10,18 +10,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing verification token" }, { status: 400 })
     }
 
-    const user = users.find((u) => u.verificationToken === token)
+    const user = await findUserByVerificationToken(token)
     if (!user) {
       return NextResponse.json({ error: "Invalid or expired verification link" }, { status: 400 })
     }
 
-    user.verified = true
-    user.verificationToken = null
+    await markUserVerifiedById(user.id)
 
     console.log("EMAIL VERIFIED", { email: user.email })
 
-    // Redirect back to login with a small hint
-    return NextResponse.redirect("/login?verified=1")
+    const dest = new URL("/login?verified=1", url.origin)
+    return NextResponse.redirect(dest)
   } catch (err) {
     console.error("VERIFY EMAIL ERROR", err)
     return NextResponse.json({ error: "Server error" }, { status: 500 })
