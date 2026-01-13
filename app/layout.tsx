@@ -10,10 +10,13 @@ import Navbar from "./Navbar"
 import Footer from "./Footer"
 
 export const metadata: Metadata = {
-  title: "AI STUDY BUDDY",
-  description: "AI powered study summarizer",
+  title: "AI Study Buddy - Your AI-powered study companion",
+  description: "Transform your study routine with AI-powered tools. Create summaries, generate quizzes, predict exam topics, and track progress.",
   icons: {
-    icon: "/globe.svg",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "32x32" }
+    ],
   },
 }
 

@@ -48,6 +48,7 @@ export default function LoginClient() {
         if (typeof window !== "undefined") {
           try {
             localStorage.setItem("token", data.token)
+            document.cookie = `token=${data.token}; path=/; max-age=86400`
           } catch {
             // ignore storage errors
           }
@@ -80,6 +81,7 @@ export default function LoginClient() {
         if (typeof window !== "undefined") {
           try {
             localStorage.setItem("token", data.token)
+            document.cookie = `token=${data.token}; path=/; max-age=86400`
           } catch {
             // ignore storage errors
           }
@@ -153,6 +155,7 @@ export default function LoginClient() {
         if (typeof window !== "undefined") {
           try {
             localStorage.setItem("token", data.token)
+            document.cookie = `token=${data.token}; path=/; max-age=86400`
           } catch {
             // ignore storage errors
           }
