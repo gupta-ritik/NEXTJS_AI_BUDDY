@@ -66,8 +66,8 @@ AI Study Buddy is a comprehensive Next.js application that transforms how studen
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/next-study-buddy.git
-   cd next-study-buddy
+   git clone https://github.com/gupta-ritik/NEXTJS_AI_BUDDY.git
+   cd NEXTJS_AI_BUDDY
    ```
 
 2. **Install dependencies**
@@ -85,20 +85,32 @@ AI Study Buddy is a comprehensive Next.js application that transforms how studen
    
    Create a `.env.local` file in the root directory:
    ```env
-   # Supabase Configuration
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-
    # AI Configuration
    GROQ_API_KEY=your_groq_api_key
 
    # JWT Secret
    JWT_SECRET=your_jwt_secret_key
 
-   # Email Configuration (Optional)
-   EMAIL_USER=your_email@gmail.com
-   EMAIL_PASS=your_app_password
+   # SMTP Configuration
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=your_email@gmail.com
+   SMTP_PASS=your_app_password
+   SMTP_FROM="AI Study Buddy <your_email@gmail.com>"
+
+   # App Configuration
+   APP_BASE_URL=http://localhost:3000
+
+   # Google OAuth
+   GOOGLE_CLIENT_ID=your_google_client_id
+   NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
+
+   # Supabase Configuration
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+   # OCR Configuration (Optional)
+   OCR_SPACE_API_KEY=your_ocr_api_key
    ```
 
 4. **Run the development server**
