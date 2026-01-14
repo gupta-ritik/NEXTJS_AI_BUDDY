@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type ChangeEvent } from "react"
+import { useState, useEffect, type ChangeEvent } from "react"
 import { useRouter } from "next/navigation"
 
 type PredictedTopic = {
@@ -19,6 +19,15 @@ type ExamPrediction = {
 
 export default function ExamPredictorPage() {
   const router = useRouter()
+  const [checkingAuth, setCheckingAuth] = useState(true)
+  useEffect(() => {
+    // Check for token in localStorage or cookies
+    const token = typeof window !== "undefined" ? window.localStorage.getItem("token") : null
+    if (!token) {
+      router.replace("/login")
+    }
+    setCheckingAuth(false)
+  }, [router])
 
   const [examName, setExamName] = useState("")
   const [syllabus, setSyllabus] = useState("")
@@ -145,6 +154,10 @@ export default function ExamPredictorPage() {
       setUploadingImage(false)
       event.target.value = ""
     }
+  }
+
+  if (checkingAuth) {
+    return null // or a loading spinner if you prefer
   }
 
   return (
