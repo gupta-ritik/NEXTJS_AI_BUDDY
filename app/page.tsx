@@ -1,5 +1,6 @@
-"use client"
 
+"use client"
+import { Analytics } from "@vercel/analytics/next"
 import { useEffect, useRef, useState } from "react"
 import { gsap } from "gsap"
 import { ScrambleTextPlugin } from "gsap/ScrambleTextPlugin"
@@ -562,6 +563,7 @@ export default function Home() {
 
       
       </div>
+      <Analytics />
     </main>
   )
 }
