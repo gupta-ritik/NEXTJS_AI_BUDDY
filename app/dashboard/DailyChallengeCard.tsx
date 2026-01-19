@@ -28,9 +28,16 @@ function todayUtc() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function yesterdayUtc(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00Z")
+  d.setUTCDate(d.getUTCDate() - 1)
+  return d.toISOString().slice(0, 10)
+}
+
 export default function DailyChallengeCard() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [warning, setWarning] = useState<string | null>(null)
   const [xp, setXp] = useState<number | null>(null)
   const [streak, setStreak] = useState<number | null>(null)
   const [bestStreak, setBestStreak] = useState<number | null>(null)
@@ -44,6 +51,7 @@ export default function DailyChallengeCard() {
   const load = async () => {
     setLoading(true)
     setError(null)
+    setWarning(null)
 
     const token = getTokenFromLocalStorage()
     if (!token) {
@@ -69,6 +77,27 @@ export default function DailyChallengeCard() {
       setStreak(typeof body.dailyStreak === "number" ? body.dailyStreak : 0)
       setBestStreak(typeof body.bestDailyStreak === "number" ? body.bestDailyStreak : 0)
       setLastDate(body.lastDailyChallengeDate ?? null)
+
+      const today = todayUtc()
+      const y = yesterdayUtc(today)
+      const last = body.lastDailyChallengeDate ?? null
+      const ds = typeof body.dailyStreak === "number" ? body.dailyStreak : 0
+      const broken = Boolean(last && last !== today && last !== y && ds > 0)
+
+      if (broken) {
+        const msg = `Streak broken. You missed a day — previous streak was ${ds}. Start again today!`
+        setWarning(msg)
+        try {
+          const key = `ai-study-buddy:streak-broken-dashboard-alert:${today}`
+          const already = window.localStorage.getItem(key)
+          if (!already) {
+            window.localStorage.setItem(key, "1")
+            window.alert(msg)
+          }
+        } catch {
+          // ignore
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong")
     } finally {
@@ -125,6 +154,12 @@ export default function DailyChallengeCard() {
             <span className="rounded-full border border-slate-800 bg-slate-950/40 px-3 py-1 text-slate-200">
               Best: {bestStreak ?? "—"}
             </span>
+          </div>
+        )}
+
+        {warning && (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-100">
+            {warning}
           </div>
         )}
 

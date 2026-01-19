@@ -17,6 +17,14 @@ type TodayResponse = {
   totalQuestions: number
   completed: boolean
   questions: ChallengeQuestion[]
+  user?: {
+    xp: number
+    dailyStreak: number
+    bestDailyStreak: number
+    lastDailyChallengeDate: string | null
+    streakBroken: boolean
+    previousStreak: number
+  }
   attempt?: {
     answers: string[]
     score: number
@@ -39,6 +47,8 @@ type SubmitResponse = {
   streak?: number
   bestStreak?: number
   xpTotal?: number
+  streakBroken?: boolean
+  previousStreak?: number
   solutions: { idx: number; answer: string; explanation: string | null }[]
   correctness?: boolean[]
   error?: string
@@ -63,6 +73,7 @@ export default function DailyChallengeClient() {
 
   const [answers, setAnswers] = useState<string[]>([])
   const [result, setResult] = useState<SubmitResponse | null>(null)
+  const [streakWarning, setStreakWarning] = useState<string | null>(null)
 
   const canSubmit = useMemo(() => {
     if (!today || today.completed) return false
@@ -102,6 +113,25 @@ export default function DailyChallengeClient() {
       setToday(body)
       setAnswers(body.completed && body.attempt?.answers ? body.attempt.answers : new Array(body.questions.length).fill(""))
       setResult(null)
+
+      const broken = body?.user?.streakBroken === true
+      const prev = typeof body?.user?.previousStreak === "number" ? body.user.previousStreak : 0
+      if (broken) {
+        const msg = `Streak broken. You missed a day — your previous streak was ${prev} day${prev === 1 ? "" : "s"}. Start again today!`
+        setStreakWarning(msg)
+        try {
+          const key = `ai-study-buddy:streak-broken-alert:${body.date}`
+          const already = window.localStorage.getItem(key)
+          if (!already) {
+            window.localStorage.setItem(key, "1")
+            window.alert(msg)
+          }
+        } catch {
+          // ignore
+        }
+      } else {
+        setStreakWarning(null)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong")
     } finally {
@@ -157,6 +187,23 @@ export default function DailyChallengeClient() {
       }
 
       setResult(body)
+
+      if (body?.streakBroken) {
+        const prev = typeof body.previousStreak === "number" ? body.previousStreak : 0
+        const msg = `Streak broken. You missed a day — your previous streak was ${prev} day${prev === 1 ? "" : "s"}. Start again today!`
+        setStreakWarning(msg)
+        try {
+          const key = `ai-study-buddy:streak-broken-submit-alert:${body.date}`
+          const already = window.localStorage.getItem(key)
+          if (!already) {
+            window.localStorage.setItem(key, "1")
+            window.alert(msg)
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong")
@@ -205,6 +252,13 @@ export default function DailyChallengeClient() {
           </div>
 
           {error && <p className="mt-3 text-[11px] text-red-300">{error}</p>}
+
+          {streakWarning && (
+            <div className="mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-[11px] text-amber-100">
+              <p className="font-semibold">Streak alert</p>
+              <p className="mt-1 text-amber-100/90">{streakWarning}</p>
+            </div>
+          )}
 
           {loading ? (
             <p className="mt-4 text-sm text-slate-300">Loading your daily challenge…</p>

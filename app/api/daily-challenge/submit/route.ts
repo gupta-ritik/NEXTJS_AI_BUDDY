@@ -117,6 +117,14 @@ async function updateUserStats(params: {
 
   const yesterday = utcYesterday(params.today)
 
+  const streakBroken = Boolean(
+    current.lastDate &&
+      current.lastDate !== params.today &&
+      current.lastDate !== yesterday &&
+      current.dailyStreak > 0,
+  )
+  const previousStreak = streakBroken ? current.dailyStreak : 0
+
   let nextStreak = 1
   if (current.lastDate === params.today) {
     nextStreak = current.dailyStreak
@@ -151,6 +159,8 @@ async function updateUserStats(params: {
     dailyStreak: nextStreak,
     bestDailyStreak: nextBest,
     lastDailyChallengeDate: params.today,
+    streakBroken,
+    previousStreak,
   }
 }
 
@@ -270,6 +280,8 @@ export async function POST(req: Request) {
       streak: updated.dailyStreak,
       bestStreak: updated.bestDailyStreak,
       xpTotal: updated.xp,
+      streakBroken: updated.streakBroken,
+      previousStreak: updated.previousStreak,
       solutions: questions.map((q) => ({ idx: q.idx, answer: q.answer, explanation: q.explanation })),
       correctness,
     })

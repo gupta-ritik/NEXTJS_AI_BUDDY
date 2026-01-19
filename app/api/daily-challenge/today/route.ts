@@ -26,6 +26,12 @@ function utcDateString(d = new Date()) {
   return d.toISOString().slice(0, 10)
 }
 
+function utcYesterday(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00Z")
+  d.setUTCDate(d.getUTCDate() - 1)
+  return d.toISOString().slice(0, 10)
+}
+
 function isMissingDailyChallengeSchemaError(err: any) {
   const code = typeof err?.code === "string" ? err.code : ""
   const message = typeof err?.message === "string" ? err.message : ""
@@ -238,6 +244,13 @@ export async function GET(req: Request) {
     const user = await requireUser(req)
 
     const dateStr = utcDateString()
+    const yesterday = utcYesterday(dateStr)
+    const lastDate = user.last_daily_challenge_date ?? null
+    const dailyStreak = typeof user.daily_streak === "number" ? user.daily_streak : 0
+    const bestDailyStreak = typeof user.best_daily_streak === "number" ? user.best_daily_streak : 0
+    const xp = typeof user.xp === "number" ? user.xp : 0
+    const streakBroken = Boolean(lastDate && lastDate !== dateStr && lastDate !== yesterday && dailyStreak > 0)
+
     const challenge = await getOrCreateDailyChallenge(dateStr)
     const questions = await ensureQuestions(challenge)
 
@@ -276,6 +289,14 @@ export async function GET(req: Request) {
         date: dateStr,
         totalQuestions: responseQuestions.length,
         completed: false,
+        user: {
+          xp,
+          dailyStreak,
+          bestDailyStreak,
+          lastDailyChallengeDate: lastDate,
+          streakBroken,
+          previousStreak: streakBroken ? dailyStreak : 0,
+        },
         questions: responseQuestions,
       })
     }
@@ -291,6 +312,14 @@ export async function GET(req: Request) {
       date: dateStr,
       totalQuestions: responseQuestions.length,
       completed: true,
+      user: {
+        xp,
+        dailyStreak,
+        bestDailyStreak,
+        lastDailyChallengeDate: lastDate,
+        streakBroken,
+        previousStreak: streakBroken ? dailyStreak : 0,
+      },
       questions: responseQuestions,
       attempt: {
         answers: answersArray,
