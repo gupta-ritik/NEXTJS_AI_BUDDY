@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
+import AccountCard from "./AccountCard"
+import ReferralCard from "./ReferralCard"
 import {
   Bar,
   BarChart,
@@ -105,18 +107,54 @@ export default function DashboardPage() {
   const [email, setEmail] = useState<string | null>(null)
   const [data, setData] = useState<UserStudyData>({ sessions: [], plans: [] })
   const [quizResults, setQuizResults] = useState<QuizResult[]>([])
+  const [mounted, setMounted] = useState(false)
+  const [roleChecked, setRoleChecked] = useState(false)
 
   useEffect(() => {
     if (typeof window === "undefined") return
+    let cancelled = false
+    setMounted(true)
+
     const token = window.localStorage.getItem("token")
     if (!token) {
       router.push("/login")
       return
     }
-    const decodedEmail = decodeEmailFromToken(token)
-    setEmail(decodedEmail)
-    setData(loadUserData(decodedEmail))
-    setQuizResults(loadQuizResults(decodedEmail))
+
+    ;(async () => {
+      try {
+        // Single dashboard behavior: admins go to /admin.
+        const res = await fetch("/api/auth/me", {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        })
+
+        if (res.status === 401) {
+          router.push("/login")
+          return
+        }
+
+        const body = (await res.json().catch(() => ({}))) as { role?: string }
+        if (body?.role === "admin") {
+          router.replace("/admin")
+          return
+        }
+      } catch {
+        // If the role check fails, fall back to user dashboard.
+      } finally {
+        if (!cancelled) setRoleChecked(true)
+      }
+
+      const decodedEmail = decodeEmailFromToken(token)
+      if (cancelled) return
+      setEmail(decodedEmail)
+      setData(loadUserData(decodedEmail))
+      setQuizResults(loadQuizResults(decodedEmail))
+    })()
+
+    return () => {
+      cancelled = true
+    }
   }, [router])
 
   useEffect(() => {
@@ -136,6 +174,18 @@ export default function DashboardPage() {
   }, [data])
 
   const analytics = useMemo(() => {
+    if (!mounted) {
+      return {
+        pdfSummaries: 0,
+        totalSummaries: 0,
+        totalMcqs: 0,
+        accuracyPercent: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        dailyActivity: [] as { label: string; sessions: number; pdfs: number }[],
+        quizAccSeries: [] as { label: string; accuracy: number }[],
+      }
+    }
     const sessions = data.sessions
     const pdfSummaries = sessions.filter((s) => s.mode === "pdf").length
 
@@ -238,9 +288,24 @@ export default function DashboardPage() {
       dailyActivity,
       quizAccSeries,
     }
-  }, [data.sessions, quizResults])
+  }, [mounted, data.sessions, quizResults])
 
   const recentSessions = [...data.sessions].slice(-4).reverse()
+
+  if (!roleChecked) {
+    return (
+      <main
+        className="min-h-screen px-4 py-8 md:py-12 flex justify-center"
+        style={{ backgroundColor: "var(--background)", color: "var(--foreground)" }}
+      >
+        <div className="w-full max-w-5xl">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 md:p-5 text-sm text-slate-300">
+            Loading dashboard…
+          </div>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main
@@ -268,35 +333,38 @@ export default function DashboardPage() {
               Jump into smart notes, plan what to study next, and keep an eye on how your revision is adding up.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center md:justify-end">
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={() => router.push("/summarize")}
-              className="physics-button inline-flex items-center justify-center rounded-xl bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-500/30 hover:bg-indigo-400 transition"
+              className="physics-button inline-flex w-full items-center justify-center rounded-xl bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-500/30 hover:bg-indigo-400 transition md:w-auto"
             >
               Open Smart Notes
             </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={() => router.push("/chat-pdf")}
-              className="physics-button hidden md:inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-xs font-medium text-slate-100 border border-slate-700 hover:border-indigo-500 hover:text-indigo-100 transition"
-            >
-              Chat with PDFs
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={() => router.push("/quiz-battle")}
-              className="physics-button hidden md:inline-flex items-center justify-center rounded-xl bg-emerald-500 px-4 py-2 text-xs font-medium text-emerald-950 shadow-lg shadow-emerald-500/30 hover:bg-emerald-400 transition"
-            >
-              AI Quiz Battle
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={() => router.push("/exam-predictor")}
-              className="physics-button hidden md:inline-flex items-center justify-center rounded-xl bg-amber-500 px-4 py-2 text-xs font-medium text-amber-950 shadow-lg shadow-amber-500/40 hover:bg-amber-400 transition"
-            >
-              AI Exam Predictor
-            </motion.button>
+
+            <div className="grid grid-cols-2 gap-2 md:flex md:items-center">
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => router.push("/chat-pdf")}
+                className="physics-button inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-3 py-2 text-xs font-medium text-slate-100 border border-slate-700 hover:border-indigo-500 hover:text-indigo-100 transition md:w-auto md:px-4"
+              >
+                Chat with PDFs
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => router.push("/quiz-battle")}
+                className="physics-button inline-flex w-full items-center justify-center rounded-xl bg-emerald-500 px-3 py-2 text-xs font-medium text-emerald-950 shadow-lg shadow-emerald-500/30 hover:bg-emerald-400 transition md:w-auto md:px-4"
+              >
+                AI Quiz Battle
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => router.push("/exam-predictor")}
+                className="physics-button inline-flex w-full items-center justify-center rounded-xl bg-amber-500 px-3 py-2 text-xs font-medium text-amber-950 shadow-lg shadow-amber-500/40 hover:bg-amber-400 transition md:w-auto md:px-4"
+              >
+                AI Exam Predictor
+              </motion.button>
+            </div>
           </div>
         </motion.div>
 
@@ -358,6 +426,14 @@ export default function DashboardPage() {
               </div>
             </div>
           </motion.section>
+
+          <motion.div variants={{ hidden: { opacity: 0, y: 18 }, visible: { opacity: 1, y: 0 } }}>
+            <AccountCard />
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, y: 18 }, visible: { opacity: 1, y: 0 } }}>
+            <ReferralCard />
+          </motion.div>
         </motion.div>
 
         {/* History Dashboard */}

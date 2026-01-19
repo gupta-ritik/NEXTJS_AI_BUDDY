@@ -1,9 +1,9 @@
 import bcrypt from "bcryptjs"
 import { NextResponse } from "next/server"
-import { createCredentialsUser, findUserByEmail } from "../user-repository"
+import { applyReferralOnSignup, createCredentialsUser, findUserByEmail } from "../user-repository"
 
 export async function POST(req: Request) {
-  const { email, password, firstName, lastName, mobile } = await req.json()
+  const { email, password, firstName, lastName, mobile, referralCode } = await req.json()
 
   if (!email || !password) {
     return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
@@ -37,6 +37,15 @@ export async function POST(req: Request) {
   }
 
   console.log("REGISTER: user stored", { email })
+
+  if (typeof referralCode === "string" && referralCode.trim()) {
+    try {
+      await applyReferralOnSignup({ newUserEmail: email, referralCode })
+    } catch (err) {
+      console.error("REGISTER: applyReferralOnSignup error", err)
+      // Do not fail registration if referral processing fails
+    }
+  }
 
   return NextResponse.json({ success: true, message: "Account created. You can now sign in." })
 }

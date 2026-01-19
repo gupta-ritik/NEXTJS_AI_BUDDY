@@ -1,6 +1,6 @@
 import "./globals.css"
 import type { Metadata, Viewport } from "next"
-import MouseGlow from "./MouseGlow"
+
 import PhysicsButtons from "./PhysicsButtons"
 import ScrollReveal from "./ScrollReveal"
 import TextScramble from "./TextScramble"
@@ -32,7 +32,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AuthProvider>
-          <MouseGlow />
+
           <PhysicsButtons />
           <ScrollReveal />
           <TextScramble />

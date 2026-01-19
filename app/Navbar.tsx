@@ -8,11 +8,11 @@ import { useAuth } from "./AuthContext"
 
 const navLinks = [
   { href: "/", label: "Home" },
-  
   { href: "/study-planner", label: "Study Planner" },
   { href: "/summarize", label: "Smart Notes" },
   { href: "/quiz-battle", label: "AI Quiz Battle" },
   { href: "/exam-predictor", label: "Exam Predictor" },
+  { href: "/chat-pdf", label: "Chat with PDFs" },
 ]
 
 export default function Navbar() {

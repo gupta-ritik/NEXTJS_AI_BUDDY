@@ -33,6 +33,14 @@ export async function POST(req: Request) {
       console.error("RESEND_OTP: sendOtpEmail error", err)
     }
 
+    const smtpConfigured =
+      !!process.env.SMTP_HOST && !!process.env.SMTP_USER && !!process.env.SMTP_PASS
+    const isDev = process.env.NODE_ENV !== "production"
+
+    if (isDev && !smtpConfigured) {
+      return NextResponse.json({ success: true, devOtp: otp })
+    }
+
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error("RESEND_OTP:", err)

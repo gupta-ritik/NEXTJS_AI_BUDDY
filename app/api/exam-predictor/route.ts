@@ -1,26 +1,14 @@
 import { NextResponse } from "next/server"
 import Groq from "groq-sdk"
-import jwt from "jsonwebtoken"
+import { authorizeAiCall } from "../auth/monetization"
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY!,
 })
 
 export async function POST(req: Request) {
+  let rollback: (() => Promise<void>) | null = null
   try {
-    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const token = authHeader.slice("Bearer ".length)
-    try {
-      const secret = process.env.JWT_SECRET || "dev-secret"
-      jwt.verify(token, secret)
-    } catch {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 })
-    }
-
     const body = await req.json()
     const syllabus = typeof body.syllabus === "string" ? body.syllabus.trim() : ""
     const pastPapers = typeof body.pastPapers === "string" ? body.pastPapers.trim() : ""
@@ -31,6 +19,22 @@ export async function POST(req: Request) {
         { error: "Please paste your syllabus and/or past paper questions." },
         { status: 400 }
       )
+    }
+
+    try {
+      const auth = await authorizeAiCall(req)
+      rollback = auth.rollback
+    } catch (err: any) {
+      if (err instanceof Error && err.message === "UNAUTHORIZED") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
+      if (err instanceof Error && err.message === "OUT_OF_CREDITS") {
+        return NextResponse.json(
+          { error: "Out of credits. Earn more by streaks, challenges, or referrals!" },
+          { status: 402 }
+        )
+      }
+      throw err
     }
 
     const chat = await groq.chat.completions.create({
@@ -75,7 +79,6 @@ export async function POST(req: Request) {
         jsonStart !== -1 && jsonEnd !== -1 ? cleaned.slice(jsonStart, jsonEnd + 1) : cleaned
 
       const parsed = JSON.parse(jsonString)
-
       const overview = typeof parsed.overview === "string" ? parsed.overview : ""
       const strategy = typeof parsed.strategy === "string" ? parsed.strategy : ""
       const topics = Array.isArray(parsed.topics) ? parsed.topics : []
@@ -93,6 +96,11 @@ export async function POST(req: Request) {
     }
   } catch (err) {
     console.error("Exam predictor error", err)
-    return NextResponse.json({ error: "Exam prediction failed" }, { status: 500 })
+    if (rollback) {
+      try {
+        await rollback()
+      } catch {}
+    }
+    return NextResponse.json({ error: "Exam predictor failed" }, { status: 500 })
   }
 }

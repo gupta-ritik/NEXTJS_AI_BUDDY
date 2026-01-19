@@ -29,7 +29,6 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 18px;
   transition: background 250ms ease, color 250ms ease;
-  cursor: none;
 }
 
 /* Theme-aware text color for body copy on light vs dark */

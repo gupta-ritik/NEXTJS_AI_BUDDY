@@ -1,4 +1,5 @@
 # 🏗️ AI Study Buddy - Architecture Documentation
+# 🏗️ AI Study Buddy - Architecture Documentation
 
 ## 📋 Table of Contents
 1. [System Overview](#system-overview)
@@ -11,6 +12,7 @@
 8. [Database Schema](#database-schema)
 9. [AI Integration](#ai-integration)
 10. [Deployment Architecture](#deployment-architecture)
+11. [Auth & Monetization](#auth--monetization)
 
 ---
 
@@ -74,7 +76,6 @@ app/
 │   ├── Navbar.tsx               # Navigation
 │   ├── Footer.tsx               # Footer
 │   ├── ThemeToggle.tsx          # Dark/Light mode
-│   ├── MouseGlow.tsx            # Custom cursor
 │   ├── ChatWidget.tsx           # Chat interface
 │   ├── ContactForm.tsx          # Contact form
 │   └── AuthContext.tsx          # Auth state management
@@ -86,7 +87,6 @@ app/
 
 #### 1. **Client Components** (`"use client"`)
 Used for interactive features requiring browser APIs:
-- `MouseGlow.tsx` - Custom cursor with animations
 - `ThemeToggle.tsx` - Theme switching
 - `ChatWidget.tsx` - Real-time chat
 - `AuthContext.tsx` - Authentication state
@@ -181,6 +181,12 @@ app/api/
 │   ├── supabaseClient.ts        # Supabase client
 │   ├── user-repository.ts       # User data access
 │   └── users-store.ts           # In-memory user store
+├── referral/
+│   ├── me/route.ts              # Get referral code + share link
+│   └── redeem/route.ts          # Redeem a referral code
+├── admin/
+│   ├── analytics/route.ts       # Admin-only basic analytics
+│   └── users/role/route.ts      # Admin-only role management
 ├── summarize/route.ts           # AI summarization
 ├── quiz/generate/route.ts       # Quiz generation
 ├── exam-predictor/route.ts      # Exam prediction
@@ -287,6 +293,113 @@ export async function sendVerificationEmail(email: string, otp: string) {
 
 ---
 
+## 🔐 Auth & Monetization
+
+This project supports **roles**, **credit-based AI usage**, and a **referral system**.
+
+### Roles
+
+- **free**: limited AI usage via credits
+- **pro**: unlimited AI usage (no credit deduction)
+- **admin**: unlimited AI usage + access to admin APIs
+
+### Credits
+
+- Free users start with `CREDIT_CONFIG.FREE_STARTING_CREDITS`.
+- Each AI call costs `CREDIT_CONFIG.AI_CALL_COST` credits.
+- Credits are reserved up-front for free users and automatically **refunded if the AI call fails**.
+
+Implemented in: app/api/auth/monetization.ts
+
+#### Atomic credit updates (recommended)
+
+To make credits **concurrency-safe** (avoid double-spend during parallel requests), create this optional SQL function in Supabase:
+
+```sql
+create or replace function public.sb_adjust_credits(
+  p_user_id uuid,
+  p_delta integer,
+  p_require_non_negative boolean default false
+)
+returns integer
+language plpgsql
+security definer
+as $$
+declare
+  new_credits integer;
+begin
+  update public.app_users
+  set credits = case
+    when p_require_non_negative then greatest(0, credits + p_delta)
+    else credits + p_delta
+  end
+  where id = p_user_id
+    and (not p_require_non_negative or (credits + p_delta) >= 0)
+  returning credits into new_credits;
+
+  if not found then
+    raise exception 'INSUFFICIENT_CREDITS';
+  end if;
+
+  return new_credits;
+end;
+$$;
+
+revoke all on function public.sb_adjust_credits(uuid, integer, boolean) from public;
+grant execute on function public.sb_adjust_credits(uuid, integer, boolean) to service_role;
+```
+
+### Referral system
+
+- Each user has a unique `referral_code`.
+- Signup supports `referralCode` (or `?ref=` in the register URL).
+- When applied, both users get bonus credits:
+  - New user: `CREDIT_CONFIG.REFERRAL_BONUS_NEW_USER`
+  - Referrer: `CREDIT_CONFIG.REFERRAL_BONUS_REFERRER`
+
+Endpoints:
+
+- `GET /api/referral/me` → returns `{ code, shareUrl }`
+- `POST /api/referral/redeem` → body `{ code }` (optional fallback flow)
+
+### Supabase schema changes (required)
+
+Your `app_users` table must include these columns (example SQL):
+
+```sql
+alter table public.app_users
+  add column if not exists role text not null default 'free',
+  add column if not exists credits integer not null default 0,
+  add column if not exists referral_code text,
+  add column if not exists referred_by uuid null;
+
+-- Optional: enforce unique referral codes (recommended)
+-- (Unique constraint syntax isn't idempotent across all Postgres versions,
+--  so we use a unique index that can be created IF NOT EXISTS.)
+create unique index if not exists ux_app_users_referral_code
+  on public.app_users(referral_code)
+  where referral_code is not null;
+
+-- Optional: if you want FK safety (recommended)
+-- (Postgres does not support `ADD CONSTRAINT IF NOT EXISTS`, so use a DO block.)
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'app_users_referred_by_fkey'
+  ) then
+    alter table public.app_users
+      add constraint app_users_referred_by_fkey
+      foreign key (referred_by) references public.app_users(id);
+  end if;
+end $$;
+
+-- Optional: make referral codes easy to search
+create index if not exists idx_app_users_referral_code on public.app_users(referral_code);
+```
+
+If these columns are missing, registration and credit/referral features will fail at runtime.
+
+
 ## 🔐 Authentication Flow
 
 ### Registration Flow
@@ -296,19 +409,30 @@ export async function sendVerificationEmail(email: string, otp: string) {
 2. POST /api/auth/register
    - Validate input
    - Hash password (bcrypt)
-   - Generate OTP
-   - Store user in Supabase
-   - Send verification email
+  - Store user in Supabase
+  - Apply referral bonus (optional)
    ↓
-3. User receives OTP email
+3. User can sign in via the login flow
    ↓
+
+### Login + OTP Flow
+
+```
+1. User enters email + password
+  ↓
+2. POST /api/auth/login
+  - Validate password
+  - Generate OTP
+  - Store OTP payload in `verification_token`
+  - Send OTP email
+  ↓
+3. User submits OTP
+  ↓
 4. POST /api/auth/verify-otp
-   - Verify OTP
-   - Mark email as verified
-   - Generate JWT token
-   ↓
-5. Return JWT to client
-   ↓
+  - Verify OTP (TTL enforced)
+  - Clear `verification_token`
+  - Return JWT
+```
 6. Store token in localStorage
    ↓
 7. Redirect to dashboard

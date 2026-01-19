@@ -5,6 +5,10 @@ export interface User {
   verificationToken?: string | null
   provider?: "credentials" | "google"
   googleId?: string | null
+  role: "free" | "pro" | "admin"
+  credits: number
+  referralCode?: string | null
+  referredBy?: string | null
 }
 
 // Simple in-memory user store for demo purposes only.

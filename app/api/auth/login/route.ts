@@ -42,6 +42,15 @@ export async function POST(req: Request) {
       console.error("LOGIN: sendOtpEmail error", err)
     }
 
+    const smtpConfigured =
+      !!process.env.SMTP_HOST && !!process.env.SMTP_USER && !!process.env.SMTP_PASS
+    const isDev = process.env.NODE_ENV !== "production"
+
+    // Localhost/dev convenience: if SMTP isn't configured, return the OTP so you can test end-to-end.
+    if (isDev && !smtpConfigured) {
+      return NextResponse.json({ otpRequired: true, devOtp: otp })
+    }
+
     return NextResponse.json({ otpRequired: true })
   } catch (err) {
     console.error(err)

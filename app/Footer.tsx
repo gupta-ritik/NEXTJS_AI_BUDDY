@@ -50,6 +50,12 @@ export default function Footer() {
           >
             AI Quiz Battle
           </Link>
+          <Link
+            href="/chat-pdf"
+            className="rounded-full border border-slate-800 bg-slate-900/70 px-2 py-0.5 hover:border-indigo-400 hover:text-indigo-200"
+          >
+            Chat with PDFs
+          </Link>
         </div>
       </div>
     </footer>
