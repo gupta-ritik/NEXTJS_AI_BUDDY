@@ -15,6 +15,10 @@ export type AppUser = {
   mobile?: string | null
   role: "free" | "pro" | "admin"
   credits: number
+  xp?: number
+  daily_streak?: number
+  best_daily_streak?: number
+  last_daily_challenge_date?: string | null
   referral_code?: string | null
   referred_by?: string | null
 }

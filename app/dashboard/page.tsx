@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import AccountCard from "./AccountCard"
 import ReferralCard from "./ReferralCard"
+import DailyChallengeCard from "./DailyChallengeCard"
 import {
   Bar,
   BarChart,
@@ -433,6 +434,10 @@ export default function DashboardPage() {
 
           <motion.div variants={{ hidden: { opacity: 0, y: 18 }, visible: { opacity: 1, y: 0 } }}>
             <ReferralCard />
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, y: 18 }, visible: { opacity: 1, y: 0 } }}>
+            <DailyChallengeCard />
           </motion.div>
         </motion.div>
 

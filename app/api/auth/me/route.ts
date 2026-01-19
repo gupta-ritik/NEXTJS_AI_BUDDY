@@ -10,6 +10,10 @@ export async function GET(req: Request) {
       role: user.role,
       credits: user.credits,
       referralCode: user.referral_code ?? null,
+      xp: typeof user.xp === "number" ? user.xp : 0,
+      dailyStreak: typeof user.daily_streak === "number" ? user.daily_streak : 0,
+      bestDailyStreak: typeof user.best_daily_streak === "number" ? user.best_daily_streak : 0,
+      lastDailyChallengeDate: user.last_daily_challenge_date ?? null,
     })
   } catch (err: any) {
     if (err instanceof Error && err.message === "UNAUTHORIZED") {

@@ -42,9 +42,58 @@ alter table public.app_users
   add column if not exists role text not null default 'free',
   add column if not exists credits integer not null default 0,
 
+  -- Gamification (Daily Challenge)
+  add column if not exists xp integer not null default 0,
+  add column if not exists daily_streak integer not null default 0,
+  add column if not exists best_daily_streak integer not null default 0,
+  add column if not exists last_daily_challenge_date date,
+
   -- Referrals
   add column if not exists referral_code text,
   add column if not exists referred_by uuid null;
+
+-- ==============================
+-- Daily AI Challenge
+-- 5 questions/day, mixed difficulty, XP + streaks
+-- ==============================
+
+create table if not exists public.daily_challenges (
+  id uuid primary key default gen_random_uuid(),
+  challenge_date date not null unique,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.daily_challenge_questions (
+  id uuid primary key default gen_random_uuid(),
+  challenge_id uuid not null references public.daily_challenges(id) on delete cascade,
+  idx integer not null,
+  question text not null,
+  options jsonb not null,
+  answer text not null,
+  explanation text,
+  difficulty text not null default 'medium',
+  topic text,
+  created_at timestamptz not null default now(),
+  unique (challenge_id, idx)
+);
+
+create index if not exists idx_daily_challenge_questions_challenge
+  on public.daily_challenge_questions (challenge_id, idx);
+
+create table if not exists public.daily_challenge_attempts (
+  id uuid primary key default gen_random_uuid(),
+  challenge_id uuid not null references public.daily_challenges(id) on delete cascade,
+  user_id uuid not null references public.app_users(id) on delete cascade,
+  answers jsonb not null,
+  score integer not null,
+  total_questions integer not null,
+  xp_earned integer not null default 0,
+  completed_at timestamptz not null default now(),
+  unique (user_id, challenge_id)
+);
+
+create index if not exists idx_daily_challenge_attempts_user
+  on public.daily_challenge_attempts (user_id, completed_at desc);
 
 -- Enforce unique referral codes (idempotent)
 create unique index if not exists ux_app_users_referral_code
